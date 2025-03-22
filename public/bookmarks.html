@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bookmarks</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .timestamp {
+      color: #666;
+      font-size: 0.9em;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bookmarks</h1>
+  <ul id="bookmarks-list">
+    <li>Loading bookmarks...</li>
+  </ul>
+
+  <!-- Include the Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    // Initialize the Supabase client – replace these with your own details.
+    const supabaseUrl = 'https://sbokypllnsacwkhcrynm.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNib2t5cGxsbnNhY3draGNyeW5tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NTY5MzQsImV4cCI6MjA1ODIzMjkzNH0.dZPGo7tQXvSgdzNTkHcGst3fbQmKKljXAdadQsA7CVo';
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Function to fetch bookmarks from the "bookmarks" table
+    async function fetchBookmarks() {
+      const { data, error } = await supabaseClient
+        .from('bookmarks')
+        .select('*')
+        .order('created_at', { ascending: false });  // Assumes a 'created_at' column exists
+
+      if (error) {
+        console.error('Error fetching bookmarks:', error);
+        document.getElementById('bookmarks-list').innerHTML = '<li>Error loading bookmarks.</li>';
+      } else {
+        renderBookmarks(data);
+      }
+    }
+
+    // Function to render bookmarks in the list
+    function renderBookmarks(bookmarks) {
+      const listEl = document.getElementById('bookmarks-list');
+      listEl.innerHTML = '';
+      if (bookmarks.length === 0) {
+        listEl.innerHTML = '<li>No bookmarks found.</li>';
+      } else {
+        bookmarks.forEach(bookmark => {
+          const li = document.createElement('li');
+
+          // Create a span for the bookmark text (stored in the "sentence" column)
+          const textSpan = document.createElement('span');
+          textSpan.textContent = bookmark.sentence;
+
+          li.appendChild(textSpan);
+
+          // If a timestamp exists, display it formatted
+          if (bookmark.created_at) {
+            const timestampSpan = document.createElement('span');
+            timestampSpan.classList.add('timestamp');
+            // Format the timestamp using the browser's locale
+            const date = new Date(bookmark.created_at);
+            timestampSpan.textContent = date.toLocaleString();
+            li.appendChild(timestampSpan);
+          }
+          
+          listEl.appendChild(li);
+        });
+      }
+    }
+
+    // Fetch bookmarks when the page loads
+    fetchBookmarks();
+  </script>
+</body>
+</html>

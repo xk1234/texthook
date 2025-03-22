@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Characters Read</title>
+  <!-- Include Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    canvas {
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Daily Characters Read</h1>
+  <canvas id="statsChart" width="800" height="400"></canvas>
+
+  <script>
+    // Fetch the stats data from the /stats endpoint
+    fetch('/stats')
+      .then(response => response.json())
+      .then(data => {
+        // Sort data by date ascending (assuming created_at is in ISO format)
+        data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        // Extract labels (dates) and character counts
+        const labels = data.map(item => item.created_at.slice(0, 10));
+        const charCounts = data.map(item => item.characters);
+
+        // Create a new chart
+        const ctx = document.getElementById('statsChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',  // You can also use 'bar' if you prefer
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Daily Characters Read',
+              data: charCounts,
+              borderColor: 'blue',
+              backgroundColor: 'rgba(0, 0, 255, 0.2)',
+              fill: true,
+              tension: 0.3
+            }]
+          },
+          options: {
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Characters'
+                },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      })
+      .catch(err => {
+        console.error('Error fetching stats:', err);
+      });
+  </script>
+</body>
+</html>
