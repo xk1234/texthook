@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat-like SSE Example</title>
+  <style>
+    /* Optional: Simple styling for chat display */
+    #data-container {
+      max-width: 600px;
+      margin: 20px auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 400px;
+      overflow-y: scroll;
+      font-family: Arial, sans-serif;
+    }
+    .message {
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chat Room (Newest on Top)</h1>
+  <div id="data-container">Waiting for updates...</div>
+
+  <script>
+    // Create an EventSource instance to connect to the SSE endpoint
+    const evtSource = new EventSource('/events');
+    const container = document.getElementById('data-container');
+
+    evtSource.onmessage = (event) => {
+      // Create a new element for each message
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('message');
+      messageElement.textContent = event.data;
+      
+      // Prepend the new message so the newest is at the top
+      container.prepend(messageElement);
+    };
+
+    // Handle errors
+    evtSource.onerror = (error) => {
+      console.error('EventSource error:', error);
+    };
+  </script>
+</body>
+</html>
