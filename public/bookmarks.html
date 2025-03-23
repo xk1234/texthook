@@ -126,32 +126,28 @@
     const OPENROUTER_API_KEY = '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'; // Replace with your key
 
     // Function to call OpenRouter API to explain a sentence.
+    // Function to call your local /explain endpoint to get the explanation.
     async function explainSentence(sentence) {
-      const prompt = sentence + " Explain the grammar and translation for this sentence to an English speaker";
-      const requestBody = {
-        model: "openai/gpt-4o",
-        messages: [{
-          role: "user",
-          content: prompt
-        }]
-      };
-
       try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await fetch('/explain', {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`
+            "Content-Type": "application/json"
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({ sentence })
         });
         const result = await response.json();
-        return result.choices[0].message.content;
+        if (result.explanation) {
+          return result.explanation;
+        } else {
+          return "Error: No explanation returned.";
+        }
       } catch (err) {
-        console.error("Error calling OpenRouter API:", err);
+        console.error("Error calling /explain endpoint:", err);
         return "Error fetching explanation.";
       }
     }
+
 
     // Function to open the explanation modal with provided content (Markdown).
     function openModal(markdownContent) {

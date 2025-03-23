@@ -30,6 +30,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Middleware to parse plain text bodies.
 app.use(express.text());
+app.use(express.json());
 
 // Helper function to get today's date as an integer (YYYYMMDD)
 function getTodayInt() {
@@ -182,6 +183,44 @@ app.get('/stats', async (req, res) => {
   }
   res.json(data);
 });
+
+app.post('/explain', async (req, res) => {
+  const { sentence } = req.body;
+  if (!sentence) {
+    return res.status(400).json({ error: 'No sentence provided' });
+  }
+
+  const prompt = sentence + " Explain the grammar and translation for this sentence";
+
+  const requestBody = {
+    model: "openai/gpt-4o",
+    messages: [{
+      role: "user",
+      content: prompt
+    }]
+  };
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+    const result = await response.json();
+
+    if (result.choices && result.choices.length > 0) {
+      res.json({ explanation: result.choices[0].message.content });
+    } else {
+      res.status(500).json({ error: "Invalid response from OpenRouter API", details: result });
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Error calling OpenRouter API", details: err.toString() });
+  }
+});
+
 
 // Serve static files from the 'public' directory.
 app.use(express.static('public'));
