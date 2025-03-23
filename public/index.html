@@ -69,117 +69,129 @@
 
   <!-- Include the Supabase client library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <script>
-    // Initialize the Supabase client – replace these with your own details.
-    const supabaseUrl = 'https://sbokypllnsacwkhcrynm.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNib2t5cGxsbnNhY3draGNyeW5tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NTY5MzQsImV4cCI6MjA1ODIzMjkzNH0.dZPGo7tQXvSgdzNTkHcGst3fbQmKKljXAdadQsA7CVo';
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+<script>
+  // Initialize the Supabase client – replace these with your own details.
+  const supabaseUrl = 'https://sbokypllnsacwkhcrynm.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNib2t5cGxsbnNhY3draGNyeW5tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NTY5MzQsImV4cCI6MjA1ODIzMjkzNH0.dZPGo7tQXvSgdzNTkHcGst3fbQmKKljXAdadQsA7CVo';
+  const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+  const evtSource = new EventSource('/events');
 
-    // Function to send a bookmark to the Supabase table "bookmarks"
-    async function bookmarkMessage(text) {
-      const { data, error } = await supabaseClient
-        .from('bookmarks')
-        .insert([{ sentence: text }]);
-      if (error) {
-        console.error("Error saving bookmark:", error);
-        alert("Error saving bookmark: " + error.message);
-      } else {
-        console.log("Bookmark saved:", data);
-        alert("Bookmark saved!");
+  // Modified bookmarkMessage that uploads screenshot to the backend
+  async function bookmarkMessage(text, screenshotBase64) {
+    let screenshotURL = null;
+    if (screenshotBase64) {
+      try {
+        // Convert the base64 string to a Blob.
+        const response = await fetch("data:image/png;base64," + screenshotBase64);
+        const blob = await response.blob();
+        // Create a FormData object to send the file.
+        const formData = new FormData();
+        // Name the file using a timestamp.
+        const fileName = `screenshot-${Date.now()}.png`;
+        formData.append("file", blob, fileName);
+
+        // Call your backend upload endpoint.
+        const uploadResp = await fetch("/uploadFile", {
+          method: "POST",
+          body: formData
+        });
+        const uploadData = await uploadResp.json();
+        if (uploadData.error) {
+          console.error("Backend upload error:", uploadData.error);
+          alert("Error uploading screenshot: " + uploadData.error);
+        } else {
+          // Expect the backend to return a public URL.
+          screenshotURL = uploadData.data.publicURL || uploadData.data;
+          console.log("Uploaded screenshot public URL:", screenshotURL);
+        }
+      } catch (err) {
+        console.error("Error processing screenshot:", err);
       }
     }
-
-    const evtSource = new EventSource('/events');
-    const container = document.getElementById('data-container');
-    const charCounter = document.getElementById('char-counter');
     
-    // Variable to store the total characters (using only message text)
-    let totalChars = 0;
+    // Now insert the bookmark record with the text and the public screenshot URL.
+    const { data, error } = await supabaseClient
+      .from('bookmarks')
+      .insert([{ sentence: text, screenshot: screenshotURL }]);
+    if (error) {
+      console.error("Error saving bookmark:", error);
+      alert("Error saving bookmark: " + error.message);
+    } else {
+      console.log("Bookmark saved:", data);
+      alert("Bookmark saved!");
+    }
+  }
 
-    evtSource.onmessage = (event) => {
-      let data;
-      try {
-        data = JSON.parse(event.data);
-      } catch (err) {
-        console.error("Could not parse event data as JSON:", err);
-        return;
-      }
-      
-      // Destructure the JSON fields.
-      const { timestamp, message, screenshot } = data;
-      
-      // Prepare display text: timestamp and message combined.
-      const displayText = `[${timestamp}] ${message}`;
-      
-      // For bookmarking and character count, we use only the message text.
-      const plainText = message;
-      
-      // Clear default text on first message.
-      if (container.innerText.trim() === "Waiting for updates...") {
-        container.textContent = "";
-      }
-      
-      // Create the container for the message.
-      const messageElement = document.createElement('div');
-      messageElement.classList.add('message');
-      
-      // Create a header container for text and the bookmark button.
-      const headerDiv = document.createElement('div');
-      headerDiv.classList.add('message-header');
-      
-      // Create a span for the timestamp.
-      const timestampSpan = document.createElement('span');
-      timestampSpan.classList.add('timestamp');
-      timestampSpan.textContent = `[${timestamp}]`;
-      
-      // Create an element for the message text.
-      const messageSpan = document.createElement('p');
-      messageSpan.classList.add('msg-text');
-      messageSpan.textContent = message;
-      
-      // Create a wrapper for the text (timestamp and message).
-      const textWrapper = document.createElement('div');
-      textWrapper.style.display = 'flex';
-      textWrapper.style.alignItems = 'center';
-      textWrapper.appendChild(timestampSpan);
-      textWrapper.appendChild(messageSpan);
-      
-      // Create the bookmark button.
-      const bookmarkButton = document.createElement('button');
-      bookmarkButton.textContent = 'Bookmark';
-      bookmarkButton.addEventListener('click', async function(){
-        await bookmarkMessage(plainText);
-        bookmarkButton.remove();
-      });
-      
-      // Append the text wrapper and button to the header.
-      headerDiv.appendChild(textWrapper);
-      headerDiv.appendChild(bookmarkButton);
-      
-      // Append the header to the message container.
-      messageElement.appendChild(headerDiv);
-      
-      // If a screenshot is provided, create and append an image element.
-      if (screenshot) {
-        const img = document.createElement('img');
-        img.classList.add('screenshot');
-        img.src = "data:image/png;base64," + screenshot;
-        messageElement.appendChild(img);
-      }
-      
-      // Prepend the new message so that the newest appears at the top.
-      container.prepend(messageElement);
-      
-      // Update the character count (using only the raw message text).
-      totalChars += plainText.length;
-      charCounter.textContent = "Character Count: " + totalChars;
-      
-      console.log("Received event:", data);
-    };
+  // Example usage in your EventSource onmessage handler:
+  evtSource.onmessage = (event) => {
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (err) {
+      console.error("Could not parse event data as JSON:", err);
+      return;
+    }
+    
+    const { timestamp, message, screenshot } = data;
+    
+    // For display and character counting, we use only the message text.
+    const plainText = message;
+    
+    // Build UI elements for the incoming event.
+    const container = document.getElementById('data-container');
+    if (container.innerText.trim() === "Waiting for updates...") {
+      container.textContent = "";
+    }
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    const headerDiv = document.createElement('div');
+    headerDiv.classList.add('message-header');
+    
+    // Create a span for the timestamp.
+    const timestampSpan = document.createElement('span');
+    timestampSpan.classList.add('timestamp');
+    timestampSpan.textContent = `[${timestamp}]`;
+    
+    // Create an element for the message text.
+    const messageSpan = document.createElement('p');
+    messageSpan.classList.add('msg-text');
+    messageSpan.textContent = message;
+    
+    // Create a wrapper for the text.
+    const textWrapper = document.createElement('div');
+    textWrapper.style.display = 'flex';
+    textWrapper.style.alignItems = 'center';
+    textWrapper.appendChild(timestampSpan);
+    textWrapper.appendChild(messageSpan);
+    
+    // Create the bookmark button.
+    const bookmarkButton = document.createElement('button');
+    bookmarkButton.textContent = 'Bookmark';
+    bookmarkButton.addEventListener('click', async function(){
+      // Pass both the plain text and the screenshot (base64) to the bookmark function.
+      await bookmarkMessage(plainText, screenshot);
+      bookmarkButton.remove();
+    });
+    
+    headerDiv.appendChild(textWrapper);
+    headerDiv.appendChild(bookmarkButton);
+    messageElement.appendChild(headerDiv);
+    
+    // Display the screenshot using base64 data while the record hasn't been bookmarked yet.
+    if (screenshot) {
+      const img = document.createElement('img');
+      img.classList.add('screenshot');
+      img.src = "data:image/png;base64," + screenshot;
+      messageElement.appendChild(img);
+    }
+    
+    container.prepend(messageElement);
+  };
 
-    evtSource.onerror = (error) => {
-      console.error('EventSource error:', error);
-    };
-  </script>
+  evtSource.onerror = (error) => {
+    console.error('EventSource error:', error);
+  };
+</script>
+
 </body>
 </html>
