@@ -8,8 +8,8 @@ import requests
 import io
 
 # Replace with your actual API endpoint
-API_ENDPOINT = "http://localhost:3000/message"
-# API_ENDPOINT = "https://texthook.onrender.com/message"
+# API_ENDPOINT = "http://localhost:3000/message"
+API_ENDPOINT = "https://texthook.onrender.com/message"
 
 # Global variable to hold the selected region (x1, y1, x2, y2)
 selected_region = None

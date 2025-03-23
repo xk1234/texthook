@@ -127,7 +127,7 @@
 
     // Function to call OpenRouter API to explain a sentence.
     async function explainSentence(sentence) {
-      const prompt = sentence + " Explain the grammar and translation for this sentence";
+      const prompt = sentence + " Explain the grammar and translation for this sentence to an English speaker";
       const requestBody = {
         model: "openai/gpt-4o",
         messages: [{
