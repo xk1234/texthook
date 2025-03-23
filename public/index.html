@@ -21,13 +21,28 @@
     .message {
       padding: 5px;
       border-bottom: 1px solid #eee;
+      margin-bottom: 10px;
+    }
+    .message-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .msg-text {
-      flex: 1;
+      font-size: 14px;
+      margin: 0;
+    }
+    .timestamp {
+      font-size: 12px;
+      color: #888;
       margin-right: 10px;
+    }
+    .screenshot {
+      max-width: 100%;
+      height: 8cm; /* Height set to 8cm */
+      border: 1px solid #ddd;
+      display: block;
+      margin-top: 5px;
     }
     button {
       padding: 5px 10px;
@@ -58,11 +73,9 @@
     // Initialize the Supabase client – replace these with your own details.
     const supabaseUrl = 'https://sbokypllnsacwkhcrynm.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNib2t5cGxsbnNhY3draGNyeW5tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NTY5MzQsImV4cCI6MjA1ODIzMjkzNH0.dZPGo7tQXvSgdzNTkHcGst3fbQmKKljXAdadQsA7CVo';
-    // Rename the client to avoid conflicts.
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
     // Function to send a bookmark to the Supabase table "bookmarks"
-    // The text will be stored in the "sentence" column.
     async function bookmarkMessage(text) {
       const { data, error } = await supabaseClient
         .from('bookmarks')
@@ -80,58 +93,88 @@
     const container = document.getElementById('data-container');
     const charCounter = document.getElementById('char-counter');
     
-    // Variable to store the total characters received from messages (excluding the timestamp)
+    // Variable to store the total characters (using only message text)
     let totalChars = 0;
 
     evtSource.onmessage = (event) => {
-      // Display the full event data (including timestamp)
-      const fullMessage = event.data;
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (err) {
+        console.error("Could not parse event data as JSON:", err);
+        return;
+      }
       
-      // Log raw event data for debugging
-      console.log("Raw event data:", fullMessage);
+      // Destructure the JSON fields.
+      const { timestamp, message, screenshot } = data;
       
-      // Clear the default text on the first message
+      // Prepare display text: timestamp and message combined.
+      const displayText = `[${timestamp}] ${message}`;
+      
+      // For bookmarking and character count, we use only the message text.
+      const plainText = message;
+      
+      // Clear default text on first message.
       if (container.innerText.trim() === "Waiting for updates...") {
         container.textContent = "";
       }
       
-      // Remove the timestamp from the text for the character count and bookmark.
-      // Matches a timestamp in square brackets, e.g. "[12:08:29 AM] "
-      let messageWithoutTimestamp = fullMessage.replace(/^\[\d{1,2}:\d{2}:\d{2}(?:\s*[AP]M)?\]\s*/, '');
-      
-      // Create a new element for the incoming message
+      // Create the container for the message.
       const messageElement = document.createElement('div');
       messageElement.classList.add('message');
       
-      // Create a span to hold the full message text (with timestamp)
-      const messageText = document.createElement('span');
-      messageText.classList.add('msg-text');
-      messageText.textContent = fullMessage;
+      // Create a header container for text and the bookmark button.
+      const headerDiv = document.createElement('div');
+      headerDiv.classList.add('message-header');
       
-      // Create the bookmark button
+      // Create a span for the timestamp.
+      const timestampSpan = document.createElement('span');
+      timestampSpan.classList.add('timestamp');
+      timestampSpan.textContent = `[${timestamp}]`;
+      
+      // Create an element for the message text.
+      const messageSpan = document.createElement('p');
+      messageSpan.classList.add('msg-text');
+      messageSpan.textContent = message;
+      
+      // Create a wrapper for the text (timestamp and message).
+      const textWrapper = document.createElement('div');
+      textWrapper.style.display = 'flex';
+      textWrapper.style.alignItems = 'center';
+      textWrapper.appendChild(timestampSpan);
+      textWrapper.appendChild(messageSpan);
+      
+      // Create the bookmark button.
       const bookmarkButton = document.createElement('button');
       bookmarkButton.textContent = 'Bookmark';
       bookmarkButton.addEventListener('click', async function(){
-        // Send only the text without the timestamp
-        await bookmarkMessage(messageWithoutTimestamp);
-        // Remove the bookmark button after bookmarking
+        await bookmarkMessage(plainText);
         bookmarkButton.remove();
       });
       
-      // Append the text and button to the message element
-      messageElement.appendChild(messageText);
-      messageElement.appendChild(bookmarkButton);
+      // Append the text wrapper and button to the header.
+      headerDiv.appendChild(textWrapper);
+      headerDiv.appendChild(bookmarkButton);
       
-      // Prepend the new message so that the newest appears at the top
+      // Append the header to the message container.
+      messageElement.appendChild(headerDiv);
+      
+      // If a screenshot is provided, create and append an image element.
+      if (screenshot) {
+        const img = document.createElement('img');
+        img.classList.add('screenshot');
+        img.src = "data:image/png;base64," + screenshot;
+        messageElement.appendChild(img);
+      }
+      
+      // Prepend the new message so that the newest appears at the top.
       container.prepend(messageElement);
       
-      // Update the total character count using only the message text without the timestamp
-      totalChars += messageWithoutTimestamp.length;
+      // Update the character count (using only the raw message text).
+      totalChars += plainText.length;
       charCounter.textContent = "Character Count: " + totalChars;
       
-      // Debug logs
-      console.log("Data after timestamp removal (for counting/bookmark):", messageWithoutTimestamp);
-      console.log("Total character count updated to:", totalChars);
+      console.log("Received event:", data);
     };
 
     evtSource.onerror = (error) => {

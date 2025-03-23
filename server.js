@@ -1,6 +1,8 @@
 const express = require('express');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -47,21 +49,18 @@ function getTodayInt() {
   return parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''), 10);
 }
 
-// POST endpoint to receive messages and update daily stats
-app.post('/message', async (req, res) => {
+app.post('/message', upload.single('screenshot'), async (req, res) => {
   console.log('Received POST:', req.body);
-  let message = req.body;
-  if (typeof message === 'object') {
-    message = JSON.stringify(message);
-  }
-
-  // Count characters in the message
+  // If req.body is an object (as with multipart form data), extract the 'message' field.
+  let message = (typeof req.body === 'object' && req.body.message) ? req.body.message : req.body;
+  
+  // Count characters in the message.
   const charCount = message.length;
 
   // Get today's integer (YYYYMMDD)
   const todayInt = getTodayInt();
 
-  // Query for an existing record for today using the "day" column
+  // Query for an existing record for today using the "day" column.
   const { data: existingStats, error: selectError } = await supabase
     .from('stats')
     .select('*')
@@ -73,7 +72,7 @@ app.post('/message', async (req, res) => {
   }
 
   if (existingStats && existingStats.length > 0) {
-    // Record exists; update its characters count
+    // Record exists; update its characters count.
     const existingRecord = existingStats[0];
     const newTotal = existingRecord.characters + charCount;
     const { error: updateError } = await supabase
@@ -99,15 +98,31 @@ app.post('/message', async (req, res) => {
     console.log(`Inserted new stats for day ${todayInt}: ${charCount} characters`);
   }
 
-  // Create a timestamp and prepare the message for SSE broadcast.
+  // If a screenshot is provided, convert it to a Base64 string.
+  let screenshotBase64 = null;
+  if (req.file) {
+    screenshotBase64 = req.file.buffer.toString('base64');
+  }
+
+  // Create a timestamp and prepare the payload.
   const timestamp = new Date().toLocaleTimeString();
-  const fullMessage = `[${timestamp}] ${message}`;
+  const payload = {
+    timestamp,                 // The current time as a string.
+    message,                   // The raw message text (e.g. "Hello World").
+    screenshot: screenshotBase64  // Base64 string or null.
+  };
+
+  // Broadcast the payload to all connected clients.
   clients.forEach(client => {
-    client.res.write(`data: ${fullMessage}\n\n`);
+    client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
   });
 
   res.sendStatus(200);
 });
+
+
+
+
 
 // Optional: GET endpoint to retrieve stats
 app.get('/stats', async (req, res) => {
