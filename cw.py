@@ -9,7 +9,7 @@ import io
 
 # Replace with your actual API endpoint
 API_ENDPOINT = "http://localhost:3000/message"
-API_ENDPOINT = "http://localhost:3000/message"
+# API_ENDPOINT = "https://texthook.onrender.com/message"
 
 # Global variable to hold the selected region (x1, y1, x2, y2)
 selected_region = None
@@ -70,7 +70,7 @@ def clipboard_monitor():
             # Check for clipboard change and non-empty text
             if current_clipboard != last_clipboard and current_clipboard.strip() != "":
                 print("Clipboard changed:", current_clipboard)
-                if len(current_clipboard) < 500:
+                if len(current_clipboard) < 500 and len(current_clipboard) > 10:
                     if selected_region:
                         # Capture screenshot of the selected area
                         screenshot = ImageGrab.grab(bbox=selected_region)
@@ -85,7 +85,7 @@ def clipboard_monitor():
                     else:
                         print("No region selected yet.")
                 else:
-                    print("Clipboard text exceeds 500 characters. Not sending.")
+                    print("Clipboard text exceeds 500 characters or < 10 chars. Not sending.")
                 last_clipboard = current_clipboard
         except Exception as e:
             print("Error in clipboard monitor:", e)
